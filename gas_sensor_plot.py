@@ -288,7 +288,7 @@ def plot_data(frame, save_directory, plat, file_name, date):
                 else:
                     pm_ind = plot_nums[plot_names.index('PM')]-1
                     ax[pm_ind].plot(frame['Time'], frame[val], label=val)
-                    ax[pm_ind].set_ylim(bottom=0)
+                    #ax[pm_ind].set_ylim(bottom=0)
                     ax[pm_ind].set_ylabel('PM Conc (ug/m3)')
                     ax[pm_ind].grid(True)
                     ax[pm_ind].legend(loc='upper left', prop={'size':lg_size})
