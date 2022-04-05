@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# list of functions needed to plot the data from the remote purpleair
+# list of functions needed to plot the data from the remote gas sensors
 # currently building this script with functions to work with the newly acquired gas sensors that
 # will be integrated into both units. The current script on the raspberry pi is smarter and should
 # recognize what sensors are connected and what are not.
@@ -155,22 +155,23 @@ def make_text(file_name, save_directory, frame):
         logging.error('Error Encountered: {}'.format(e), exc_info=True)
 
 
-def get_number_of_subplots(cols):
+def get_plot_params(cols):
     '''
-    Calculate the number of subplots based on the keys of the dataframe. There may be a better way to do this
-    that doesn't depend on hardcoding the values. At the very least, maybe have a separate text file that 
-    contains the expected keys and then use that to iterate through the expected values
+    Create a tuple using zip that has the data to be plotted and the plot number they go on. Also, return the number of subplots needed    
 
     input param: cols, a list of all of the keys of the pandas dataframe
     input type: list
 
+    output param: plot_params, tuple of lists that has the type of plotted data [PM, Current, etc] with the plot number.
+    output type: tuple
     ouput param: plot_count, the number of subplots needed to display the data
     output type: integer
     '''
     
     plot_count = 0
     counted_list = []
-    
+    plot_num = []    
+
     try:    
         for val in cols:
             print(val)
@@ -178,40 +179,54 @@ def get_number_of_subplots(cols):
                 if 'PM' not in counted_list:
                     counted_list.append('PM')
                     plot_count += 1
+                    plot_num.append(plot_count)
             if 'Temp' or 'RH' in val:
                 if 'Temp' not in counted_list:
                     counted_list.append('Temp')
                     plot_count += 1
+                    plot_num.append(plot_count)
                 if 'RH' not in counted_list:
                     counted_list.append('RH')
+                    plot_num.append(plot_count)
             if 'Current' in val:
                 if 'Current' not in counted_list:
                     counted_list.append('Current')
                     plot_count += 1
+                    plot_num.append(plot_count)
             if 'Voltage' in val:
                 if 'Voltage' not in counted_list:
                     counted_list.append('Voltage')
                     plot_count += 1
+                    plot_num.append(plot_count)
             if 'Power' in val:
                 if 'Power' not in counted_list:
                     counted_list.append('Power')
                     plot_count += 1
+                    plot_num.append(plot_count)
             if 'Pressure' in val:
                 if 'Pressure' not in counted_list:
                     counted_list.append('Pressure')
                     plot_count += 1
+                    plot_num.append(plot_count)
             if 'Gas' or 'CO2' in val:
                 if 'Gas' not in counted_list:
                     counted_list.append('Gas')
                     plot_count += 1
+                    plot_num.append(plot_count)
                 if 'CO2' not in counted_list:
                     counted_list.append('CO2')
-    
+                    plot_num.append(plot_count)
+
+        #print(counted_list, plot_num, plot_count)
+        
+        plot_params = zip(counted_list, plot_num)
+        #print(list(plot_params))
+
     except Exception as e:
         print(e)
         logging.error('Error Encounted: {}'.format(e), exc_info=True)
 
-    return plot_count  
+    return plot_count, plot_params  
 
 
 def plot_data(frame, save_directory, plat, file_name, date):
@@ -234,13 +249,16 @@ def plot_data(frame, save_directory, plat, file_name, date):
     input type: string
     '''
     
-    number_of_plots = get_number_of_subplots(list(frame.columns))
+    number_of_plots, plot_parameters = get_plot_params(list(frame.columns))
+    plot_names, plot_nums = zip(*plot_parameters)
+
     plot_file = file_name[:-4] + '.png'
     lg_size = 6
     
+    #print(number_of_plots, list(plot_parameters))
+    print(plot_names, plot_nums)
+  
     fig, ax = plt.subplots(number_of_plots, sharex=True, figsize=(10, 15))
-    ax3_share = ax[3].twinx()
-    ax6_share = ax[6].twinx()
 
     '''
     #prints the key needed to access the data in the frame, and the data
@@ -263,86 +281,194 @@ def plot_data(frame, save_directory, plat, file_name, date):
     frame = frame.sort_values('Time', ascending=True)
     try:
         for val in list(frame.columns):
-            if 'Current' in val:
-                ax[0].plot(frame['Time'], frame[val], label=val)
-            if 'Power' in val:
-                ax[1].plot(frame['Time'], frame[val], label=val)
-            if 'Voltage' in val:
-                ax[2].plot(frame['Time'], frame[val], label=val)  
-            if 'Temp' or 'RH' in val:
-                if 'Temp' in val: 
-                    lg, = ax[3].plot(frame['Time'], frame[val], label=val, c=hot_colors[h_i])
-                    temp_rh_handles.append(lg)
-                    h_i += 1
-                if 'RH' in val:
-                    lg, = ax3_share.plot(frame['Time'], frame[val], label=val, c=cold_colors[c_i])
-                    temp_rh_handles.append(lg)
-                    c_i += 1
-            if 'Pressure' in val:
-                ax[4].plot(frame['Time'], frame[val], label=val)
+            print(val)
             if 'PM' in val:
-                # skip standard temp/pressure readings. Still available in the text and csv file
                 if 'ST' in val:
                     next
                 else:
-                    ax[5].plot(frame['Time'], frame[val], label=val)
+                    pm_ind = plot_nums[plot_names.index('PM')]-1
+                    ax[pm_ind].plot(frame['Time'], frame[val], label=val)
+                    ax[pm_ind].set_ylim(bottom=0)
+                    ax[pm_ind].set_ylabel('PM Conc (ug/m3)')
+                    ax[pm_ind].grid(True)
+                    ax[pm_ind].legend(loc='upper left', prop={'size':lg_size})
+                    ax[pm_ind].xaxis.set_major_locator(plt.LinearLocator(12))
+
+            if 'Current' in val:
+                curr_ind = plot_nums[plot_names.index('Current')]-1
+                ax[curr_ind].plot(frame['Time'], frame[val], label=val)
+                ax[curr_ind].set_ylim(0,500)
+                ax[curr_ind].set_ylabel('Current (mA)')
+                ax[curr_ind].grid(True)
+                ax[curr_ind].legend(loc='upper left', prop={'size':lg_size})
+                ax[curr_ind].xaxis.set_major_locator(plt.LinearLocator(12))
+
+            if 'Power' in val:
+                pow_ind = plot_nums[plot_names.index('Power')]-1
+                ax[pow_ind].plot(frame['Time'], frame[val], label=val)
+                ax[pow_ind].set_ylim(0, 15)
+                ax[pow_ind].set_ylabel('Power (W)')
+                ax[pow_ind].grid(True)
+                ax[pow_ind].legend(loc='upper left', prop={'size':lg_size})
+                ax[pow_ind].xaxis.set_major_locator(plt.LinearLocator(12))
+
+            if 'Voltage' in val:
+                volt_ind = plot_nums[plot_names.index('Voltage')]-1
+                ax[volt_ind].plot(frame['Time'], frame[val], label=val)
+                ax[volt_ind].set_ylim(0, 16)
+                ax[volt_ind].set_ylabel('Voltage (V)')
+                ax[volt_ind].grid(True)
+                ax[volt_ind].legend(loc='upper left', prop={'size':lg_size})
+                ax[volt_ind].xaxis.set_major_locator(plt.LinearLocator(12))
+            if 'Temp' or 'RH' in val:
+                #these if/else statements allow us to us both temp and rh, or just one of them.
+                if 'Temp' and 'RH' in plot_names:
+                    temp_ind = plot_nums[plot_names.index('Temp')]-1
+                    rh_ind = plot_nums[plot_names.index('RH')]-1
+
+                    if temp_ind > rh_ind:
+                        if 'Temp' in val:
+                            lg, = ax[temp_ind].plot(frame['Time'], frame[val], label=val, c=hot_colors[h_i])
+                            temp_rh_handles.append(lg)
+                            h_i += 1
+                            ax[temp_ind].grid(True)
+                            ax[temp_ind].set_ylim(-20, 80)
+                            ax[temp_ind].set_ylabel("Temp (C))")
+                            ax[temp_ind].set_xlim(frame['Time'].iloc[0], frame['Time'].iloc[-1])
+                            ax[temp_ind].legend(handles=temp_rh_handles, loc='upper right', prop={'size':lg_size})
+
+                        if 'RH' in val:
+                            rh_ax = ax[temp_ind].twinx()
+                            rh_ind = plot_nums[plot_names.index('RH')]
+                            lg, = rh_ax.plot(frame['Time'], frame[val], label=val, c=cold_colors[c_i])
+                            temp_rh_handles.append(lg)
+                            c_i += 1
+                            rh_ax.grid(True)
+                            rh_ax.set_ylim(0, 100)
+                            rh_ax.set_ylabel("RH (%)")
+                            ax[temp_ind].legend(handles=temp_rh_handles, loc='upper right', prop={'size':lg_size})
+                            
+                    else:
+                        if 'RH' in val:
+                            lg, = ax[rh_ind].plot(frame['Time'], frame[val], label=val, c=cold_colors[c_i])
+                            temp_rh_handles.append(lg)
+                            c_i += 1
+                            ax[rh_ind].grid(True)
+                            ax[rh_ind].set_ylim(0,100)
+                            ax[rh_ind].set_ylabel("RH (%))")
+                            ax[rh_ind].set_xlim(frame['Time'].iloc[0], frame['Time'].iloc[-1])
+                            ax[rh_ind].legend(handles=temp_rh_handles, loc='upper right', prop={'size':lg_size})
+
+                        if 'Temp' in val:
+                            temp_ax = ax[rh_ind].twinx()
+                            lg, = temp_ax.plot(frame['Time'], frame[val], label=val, c=hot_colors[h_i])
+                            temp_rh_handles.append(lg)
+                            h_i += 1
+                            temp_ax.grid(True)
+                            temp_ax.set_ylim(-20, 80)
+                            temp_ax.set_ylabel("Temp (C)")
+                            ax[rh_ind].legend(handles=temp_rh_handles, loc='upper right', prop={'size':lg_size})
+
+                elif 'Temp' in list(frame.columns) and 'RH' not in plot_names:
+                    if 'Temp' in val:
+                        temp_ind = plot_nums[plot_names.index('Temp')]-1
+                        ax[temp_ind].plot(frame['Time'], frame[val], label=val, c=hot_colors[h_i])
+                        h_i += 1
+                        ax[temp_ind].grid(True)
+                        ax[temp_ind].set_ylim(-20, 80)
+                        ax[temp_ind].set_ylabel("Temp (C))")
+                        ax[temp_ind].set_xlim(frame['Time'].iloc[0], frame['Time'].iloc[-1])
+                        ax[temp_ind].legend(handles=temp_rh_handles, loc='upper right', prop={'size':lg_size})
+                elif 'RH' in list(frame.columns) and 'Temp' not in plot_names:
+                    if 'RH' in val:
+                        rh_ind = plot_nums[plot_names.index('RH')]-1
+                        ax[rh_ind].plot(frame['Time'], frame[val], label=val, c=cold_colors[c_i])
+                        c_i += 1
+                        ax[rh_ind].grid(True)
+                        ax[rh_ind].set_ylim(0,100)
+                        ax[rh_ind].set_ylabel("RH (%))")
+                        ax[rh_ind].set_xlim(frame['Time'].iloc[0], frame['Time'].iloc[-1])
+                        ax[rh_ind].legend(handles=temp_rh_handles, loc='upper right', prop={'size':lg_size})
+
+
+            if 'Pressure' in val:
+                press_ind = plot_nums[plot_names.index('Pressure')]-1
+                ax[press_ind].plot(frame['Time'], frame[val], label=val)
+                ax[press_ind].set_ylim(0, 1000)
+                ax[press_ind].set_ylabel('Pressure (hPa)')
+                ax[press_ind].grid(True)
+                ax[press_ind].legend(loc='upper left', prop={'size':lg_size})
+                ax[press_ind].xaxis.set_major_locator(plt.LinearLocator(12))
+
             if 'Gas' or 'CO2' in val:
-                if 'Gas' in val:
-                    lg, = ax[6].plot(frame['Time'], frame[val], label=val, c='r')
-                    gas_handles.append(lg)
-                if 'CO2' in val:
-                    lg, = ax6_share.plot(frame['Time'], frame[val], label=val, c='b')
-                    gas_handles.append(lg)
-                   
+                #check to see that both exist in the list
+                #if they do, evaluate where the are in the list to know which axes to create first
+                if 'Gas' and 'CO2' in plot_names:
+                    gas_ind = plot_nums[plot_names.index('Gas')]-1
+                    co2_ind = plot_nums[plot_names.index('CO2')]-1
+                    
+                    if gas_ind > co2_ind:
+                        if 'Gas' in val:
+                            #gas_ind = plot_nums[plot_names.index('Gas')]
+                            lg, = ax[gas_ind].plot(frame['Time'], frame[val], label=val, c='r')
+                            gas_handles.append(lg)
+                            ax[gas_ind].grid(True)
+                            ax[gas_ind].set_ylim(bottom=0)
+                            ax[gas_ind].set_ylabel("BME Gas (ohms)")
+                            ax[gas_ind].set_xlim(frame['Time'].iloc[0], frame['Time'].iloc[-1])
+                            ax[gas_ind].legend(handles=gas_handles, loc='upper right', prop={'size':lg_size})
 
-        ax[0].set_ylim(0,500)
-        ax[0].set_ylabel('Current (mA)')
-        ax[0].grid(True)
-        ax[0].legend(loc='upper left', prop={'size':lg_size})
-        ax[0].xaxis.set_major_locator(plt.LinearLocator(12))
+                        if 'CO2' in val:
+                            co2_ax = ax[gas_ind].twinx()
+                            lg, = co2_ax.plot(frame['Time'], frame[val], label=val, c='b')
+                            gas_handles.append(lg)
+                            co2_ax.grid(True)                     
+                            co2_ax.set_ylim(bottom=0)                   
+                            co2_ax.set_ylabel("CO2 CONC (PPM)")
+                            ax[gas_ind].legend(handles=gas_handles, loc='upper right', prop={'size':lg_size})
+                    else:
+                        if 'CO2' in val:
+                            lg, = ax[co2_ind].plot(frame['Time'], frame[val], label=val, c='b')
+                            gas_handles.append(lg)
+                            ax[co2_ind].grid(True)
+                            ax[co2_ind].set_ylim(bottom=0)
+                            ax[co2_ind].set_ylabel("CO2 CONC (PPM)")
+                            ax[co2_ind].set_xlim(frame['Time'].iloc[0], frame['Time'].iloc[-1])
+                            ax[co2_ind].legend(handles=gas_handles, loc='upper right', prop={'size':lg_size})
+                        if 'Gas' in val:
+                            gas_ax = ax[co2_ind].twinx()
+                            lg, = gas_ax.plot(frame['Time'], frame[val], label=val, c='r')
+                            gas_handles.append(lg)
+                            gas_ax.grid(True)
+                            gas_ax.set_ylim(bottom=0)
+                            gas_ax.set_ylabel("BME Gas (ohms)")
+                            ax[co2_ind].legend(handles=gas_handles, loc='upper right', prop={'size':lg_size})
 
-        ax[1].set_ylim(0, 15)
-        ax[1].set_ylabel('Power (W)')
-        ax[1].grid(True)
-        ax[1].legend(loc='upper left', prop={'size':lg_size})
-        ax[0].xaxis.set_major_locator(plt.LinearLocator(12))
 
-        ax[2].set_ylim(0, 16)
-        ax[2].set_ylabel('Voltage (V)')
-        ax[2].grid(True)
-        ax[2].legend(loc='upper left', prop={'size':lg_size})
-        ax[2].xaxis.set_major_locator(plt.LinearLocator(12))
+                elif ('Gas' in plot_names and 'CO2' not in plot_names):
+                    if 'Gas' in val:
+                        gas_ind = plot_nums[plot_names.index('Gas')]-1
+                        ax[gas_ind].plot(frame['Time'], frame[val], label=val, c='r')     
+                        ax[gas_ind].grid(True)
+                        ax[gas_ind].set_ylim(bottom=0)
+                        ax[gas_ind].set_ylabel("BME Gas (ohms)")
+                        ax[gas_ind].set_xlim(frame['Time'].iloc[0], frame['Time'].iloc[-1])
+                        ax[gas_ind].legend(handles=gas_handles, loc='upper right', prop={'size':lg_size})
 
-        ax[4].set_ylim(0, 1000)
-        ax[4].set_ylabel('Pressure (hPa)')
-        ax[4].grid(True)
-        ax[4].legend(loc='upper left', prop={'size':lg_size})
-        ax[4].xaxis.set_major_locator(plt.LinearLocator(12))
+                elif ('CO2' in plot_names and 'Gas' not in plot_names):
+                    print("eff")
+                    if 'CO2' in val:
+                        co2_ind = plot_nums[plot_names.index('CO2')]-1
+                        ax[co2_ind].plot(frame['Time'], frame[val], label=val, c='b')
+                        ax[co2_ind].grid(True)
+                        ax[co2_ind].set_ylim(bottom=0)
+                        ax[co2_ind].set_ylabel("CO2 CONC (PPM)")
+                        ax[co2_ind].set_xlim(frame['Time'].iloc[0], frame['Time'].iloc[-1])
+                        ax[co2_ind].legend(handles=gas_handles, loc='upper right', prop={'size':lg_size})
+
         
-        ax[5].set_ylim(bottom=0)
-        ax[5].set_ylabel('PM Conc (ug/m3)')
-        ax[5].grid(True)
-        ax[5].legend(loc='upper left', prop={'size':lg_size})
-        ax[5].xaxis.set_major_locator(plt.LinearLocator(12))
-
-        ax[3].set_ylim(-20, 80)
-        ax[6].set_ylim(bottom=0)
-        ax3_share.set_ylim(0, 100)
-        ax6_share.set_ylim(bottom=0)
-
-        ax[3].set_ylabel('Temp (C)')
-        ax[6].set_ylabel('BME Gas (ohms)')
-        ax3_share.set_ylabel('RH (%)')
-        ax6_share.set_ylabel('CO2 CONC (PPM)')
-        
-        ax[3].grid(True)
-        ax[6].grid(True)
-        ax[3].legend(handles=temp_rh_handles, loc='upper right', prop={'size':lg_size})
-        ax[6].legend(handles=gas_handles, loc='upper right', prop={'size':lg_size})
-        
-        ax[6].set_xlim(frame['Time'].iloc[0], frame['Time'].iloc[-1])
-        ax[6].xaxis.set_major_locator(plt.LinearLocator(12))
-
+        ax[0].set_xlim(frame['Time'].iloc[0], frame['Time'].iloc[-1])
+        ax[0].xaxis.set_major_locator(plt.LinearLocator(12))  
         plt.xticks(rotation=35)
         plot_name = save_directory + plot_file
         print(plot_name)
@@ -352,7 +478,7 @@ def plot_data(frame, save_directory, plat, file_name, date):
         plt.tight_layout()
         plt.savefig(plot_name, dpi=300)
         plt.close()
-
+        
     except Exception as e:
         print(e)
         logging.error('Error Encountered: {}'.format(e), exc_info=True)
